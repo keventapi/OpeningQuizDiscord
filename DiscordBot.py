@@ -7,7 +7,7 @@ import yt_dlp
 import PlayYoutubeMusic
 import os
 
-secret = "MTM0NjkwODEzNjM0MjE2MzYxMQ.G-42vk.BssqmstlLTbekIFykr6wddDSrwz8fkp1g7jJBU"
+secret = ""
 client_id = "1346908136342163611"
 intents = discord.Intents.default()
 intents.message_content = True
