@@ -18,6 +18,5 @@ def search_opening(search):
 def convert_webm_to_mp3(input_file, output_file):
     try:
         ffmpeg.input(input_file).output(output_file, codec='libmp3lame', audio_bitrate='192k').run()
-        print(f"Arquivo convertido com sucesso! O arquivo mp3 está em: {output_file}")
     except ffmpeg.Error as e:
         print("Erro ao converter o arquivo:", e)
