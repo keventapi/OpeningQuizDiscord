@@ -19,18 +19,18 @@ alternative_names = []
 match = {}
 
 async def autocomplete(interaction: discord.Interaction, current: str):
-    options_list = await Game.get_name_list()  # Carrega a lista de opções de forma assíncrona
+    options_list = await Game.get_name_list()
     if not options_list:
-        return []  # Retorna uma lista vazia caso não haja opções
+        return []
     
     filtered_options = []
-    seen = set()  # Usado para evitar duplicatas
+    seen = set()
     for option in options_list:
-        if current.lower() in option.lower() and option not in seen:
+        if current.lower() in option.lower() and option not in seen and option != '' and 1 <= len(option) <= 100:
             filtered_options.append(app_commands.Choice(name=option, value=option))
             seen.add(option)
     
-    return filtered_options[:20]  # Retorna no máximo 20 opções
+    return filtered_options[:20]
 
 @bot.tree.command(name='guess', description="it's your openning guess")
 @app_commands.describe(opcao='guess the anime')
