@@ -4,7 +4,7 @@ from time import sleep
 
 class REQUEST():
     def __init__(self, user, discord_id):
-        self.CLIENT_ID = 'e29fe4120a686914b88e4b23a1e41bf9'
+        self.CLIENT_ID = ''
         self.user = user
         self.discord_id = discord_id
         self.anime_list = {}

@@ -7,8 +7,9 @@ import asyncio
 import yt_dlp
 import PlayYoutubeMusic
 import os
+import aiofiles
 
-secret = ""
+secret = ''
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -18,14 +19,18 @@ alternative_names = []
 match = {}
 
 async def autocomplete(interaction: discord.Interaction, current: str):
-    options_list = Game.get_name_list()
+    options_list = await Game.get_name_list()  # Carrega a lista de opções de forma assíncrona
+    if not options_list:
+        return []  # Retorna uma lista vazia caso não haja opções
+    
     filtered_options = []
-    seen = set()
+    seen = set()  # Usado para evitar duplicatas
     for option in options_list:
         if current.lower() in option.lower() and option not in seen:
             filtered_options.append(app_commands.Choice(name=option, value=option))
             seen.add(option)
-    return filtered_options[:20]
+    
+    return filtered_options[:20]  # Retorna no máximo 20 opções
 
 @bot.tree.command(name='guess', description="it's your openning guess")
 @app_commands.describe(opcao='guess the anime')
@@ -48,49 +53,81 @@ async def guess(interaction: discord.Interaction, opcao: str):
     print(f'<@{str(interaction.user.id)}> has {user_points} points')
     await interaction.response.send_message(f'<@{str(interaction.user.id)}> has {match[str(interaction.user.id)]["points"]} points', ephemeral=True)
 
-async def play_audio(ctx, user_id, voice_channel, counter=0):
-    search = Game.start(user_id)
-    global match
-    global alternative_names
-    alternative_names = search[1]
+async def download(url):
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'postprocessors': [],
+                'outtmpl': 'downloads/%(id)s.%(ext)s',
+                'quiet': True
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            file = f'downloads/{info["id"]}.{info["ext"]}'
+            return file
+            
+            
 
-    url = PlayYoutubeMusic.search_opening(search[0])
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [],
-        'outtmpl': 'downloads/%(id)s.%(ext)s',
-        'quiet': True
-    }
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        audio_file = f'downloads/{info["id"]}.mp3'
 
-    raw = f'downloads/{info["id"]}.webm'
-    converted = audio_file
-    PlayYoutubeMusic.convert_webm_to_mp3(raw, converted)
-    ffmpeg_audio = discord.FFmpegPCMAudio(audio_file, before_options="-ss 00:00:00 -t 00:00:30")
-    voice_channel.play(ffmpeg_audio, after=lambda e: print('done', e))
-    
-    while voice_channel.is_playing():
-        await asyncio.sleep(1)
-    
-    await ctx.send(f'{url}')
-    names = ", ".join(str(i) for i in alternative_names)
-    await ctx.send(f'anime name: {alternative_names[-1]}')
-    await ctx.send(f'alternative names: {names}')
-    if user_id in match:
-        match[user_id]['guessed'] = False
+async def play_audio(ctx, user_id, voice_channel):
+    counter = 0
+    played = []
+    while counter < 20:
+        try:
+            search = Game.start(user_id)
+            while search[0] in played:
+                search = Game.start(user_id)
+            played.append(search[0])
+            global match
+            global alternative_names
+            alternative_names = search[1]
 
-    if voice_channel.is_playing() != True:
-        Game.unused_itens([raw, converted])
-    if counter < 20:
-        print(names)
-        counter += 1
-        await play_audio(ctx, user_id, voice_channel, counter)
-    else:
-        match = {}
+            url = await PlayYoutubeMusic.search_opening(search[0])
+            
+            try:
+                file = await download(url)
+            except:
+                search = Game.start(user_id)
+                alternative_names = search[1]
+                url = await PlayYoutubeMusic.search_opening(search[0])
+                file = await download(url)
+            
+            ffmpeg_audio = discord.FFmpegPCMAudio(file, executable="ffmpeg", before_options="-ss 00:00:00 -t 00:00:30")
+            voice_channel.play(ffmpeg_audio, after=lambda e: print('done', e))
+            print(f"Playing URL: {url}")
+            if user_id in match:
+                match[user_id]['guessed'] = False
+            
+            while voice_channel.is_playing():
+                await asyncio.sleep(1)
+            
+            await ctx.send(f'{url}')
+            names = ", ".join(str(i) for i in alternative_names)
+            await ctx.send(f'anime name: {alternative_names[-1]}')
+            await ctx.send(f'alternative names: {names}')
+
+            if not voice_channel.is_playing():
+                Game.unused_itens([file])
+                counter += 1
+            else:
+                match = {}
+                await ctx.voice_client.disconnect()
+                break
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            await ctx.send(f"An error occurred: {e}")
+            if voice_channel.is_connected():
+                await ctx.voice_client.disconnect()
+            break
+
+    if counter >= 20 and voice_channel.is_connected():
         await ctx.voice_client.disconnect()
+        message = f''
+        for i in match.keys():
+            message += f'<@{i}> has {match[i]["points"]} points\n'
+        print(played)
+        played = []
+        await ctx.send(message)
 
 @bot.event
 async def on_ready():
@@ -124,5 +161,13 @@ async def play(ctx):
         await play_audio(ctx, user_id, voice_channel)
     else:
         await ctx.send('Você não está em um canal de voz.')
+
+@bot.command(name='stop')
+async def stop(ctx):
+    if ctx.voice_client is not None:
+        await ctx.voice_client.disconnect()
+    else:
+        await ctx.send('não to jogando otario')
+
 
 bot.run(secret)

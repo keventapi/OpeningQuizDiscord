@@ -2,6 +2,7 @@ import json
 import random
 import GetAnimeList
 import os
+import aiofiles
 
 def start(discord_id):
     file = 'Data.json'
@@ -35,25 +36,21 @@ def update_anime_alias(discord_id, anime_id, alias):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-def get_name_list():
-    with open('Data.json', 'r', encoding='utf-8') as f:
-        file_content = f.read().strip()
-        if not file_content:
+async def get_name_list():
+    async with aiofiles.open('Data.json', 'r', encoding='utf-8') as f:
+        file_content = await f.read()
+        if not file_content.strip():
             return False
-        else:
-            f.seek(0)
-            data = json.load(f)
-            result = get_all_names(data)
-            return result
+        data = json.loads(file_content)
+    
+    return await get_all_names(data)
         
-def get_all_names(data):
+async def get_all_names(data):
     empty_array = []
-    for users in data.keys():
-        print(users)
-        for anime_list in data[users].keys():
-            print(anime_list)
-            for id in data[users][anime_list][0].keys():
-                empty_array.append(data[users][anime_list][0][id][0])
+    for user, user_data in data.items():
+        for anime_data in user_data.get('anime_list', []):
+            for anime_id, aliases in anime_data.items():
+                empty_array.extend(aliases)
     return empty_array
 
 def unused_itens(archives):
