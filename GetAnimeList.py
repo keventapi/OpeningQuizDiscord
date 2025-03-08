@@ -1,5 +1,6 @@
 import json
 import requests
+import Game
 from time import sleep
 
 class REQUEST():
@@ -30,7 +31,6 @@ class REQUEST():
         anime_type = user['media_type']
         return [other_animes_name, anime_type]
 
-
     def clear_data(self, data):
         length = len(data['data'])
         for i in range(length):
@@ -56,3 +56,25 @@ class REQUEST():
         file = 'Data.json'
         with open(file, 'w', encoding='utf-8') as f:
             json.dump(old_data, f, ensure_ascii=False, indent=4)
+
+    def json_log(self, json_data):
+        json_log = json.dumps(json_data['data']['music_videos'][0], indent=4, ensure_ascii=False)
+        title = json_data['data']['music_videos'][0]['meta']['title']
+        author = json_data['data']['music_videos'][0]['meta']['author']
+        print(json_log)
+        return json_log
+                            
+
+    async def get_opening(self, anime_id, anime, discord_id):
+        try:
+            url = f'https://api.jikan.moe/v4/anime/{anime_id}/videos'
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            response.close()
+            title = data['data']['music_videos'][0]['meta']['title']
+            author = data['data']['music_videos'][0]['meta']['author']
+            print(f'{anime} anime opening {title} - {author} tv size')
+            return data['data']['music_videos'][0]['video']['url']
+        except:
+            return await Game.start(discord_id)

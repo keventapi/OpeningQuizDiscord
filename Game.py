@@ -4,7 +4,7 @@ import GetAnimeList
 import os
 import aiofiles
 
-def start(discord_id):
+async def start(discord_id):
     file = 'Data.json'
     with open(file, 'r', encoding='utf-8') as f:
         file_content = f.read().strip()
@@ -17,10 +17,12 @@ def start(discord_id):
     info = GetAnimeList.REQUEST('','')
     informations = info.get_anime_info(random_key)
     if informations[1] != 'tv':
-        return start(discord_id)
+        return await start(discord_id)
     else:
         update_anime_alias(discord_id, random_key, informations[0])
-        return [f'{informations[0][-1]} opening', informations[0]]
+        print(informations)
+        search = await GetAnimeList.REQUEST('','').get_opening(random_key, informations[0][-1], discord_id)
+        return [search, informations[0]]
     
 def update_anime_alias(discord_id, anime_id, alias):
     with open('Data.json', 'r', encoding='utf-8') as f:
@@ -35,12 +37,12 @@ def update_anime_alias(discord_id, anime_id, alias):
     with open(file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-
 async def get_name_list():
     async with aiofiles.open('Data.json', 'r', encoding='utf-8') as f:
         file_content = await f.read()
         if not file_content.strip():
-            return False
+            print("Data.json is empty or not found.")
+            return []
         data = json.loads(file_content)
     
     return await get_all_names(data)
@@ -65,3 +67,4 @@ def unused_itens(archives):
             print(f"Permission denied to delete the file {i}.")
         except Exception as e:
             print(f"Error: {e}")
+
