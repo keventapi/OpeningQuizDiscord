@@ -3,8 +3,9 @@ import random
 import GetAnimeList
 import os
 import aiofiles
+import asyncio
 
-async def start(discord_id):
+async def open_json():
     file = 'Data.json'
     with open(file, 'r', encoding='utf-8') as f:
         file_content = f.read().strip()
@@ -13,17 +14,18 @@ async def start(discord_id):
         else:
             f.seek(0)
             dados = json.load(f)
-    random_key = random.choice(list(dados[discord_id]["anime_list"][0].keys()))
-    info = GetAnimeList.REQUEST('','')
-    informations = info.get_anime_info(random_key)
-    if informations[1] != 'tv':
-        return await start(discord_id)
-    else:
-        update_anime_alias(discord_id, random_key, informations[0])
-        print(informations)
-        search = await GetAnimeList.REQUEST('','').get_opening(random_key, informations[0][-1], discord_id)
-        return [search, informations[0]]
+            return dados
+
+async def start(discord_id):
+    dados = GetAnimeList.REQUEST('', discord_id)
+    anime_info = await dados.get_anime_info_with_MAL()
+    update_anime_alias(discord_id, anime_info['anime_id'], anime_info['anime_alias'])
+    search = get_opening(anime_info['openings'])
+    return [search, anime_info['anime_alias']]
     
+def get_opening(openings):
+    return random.choice(openings)
+
 def update_anime_alias(discord_id, anime_id, alias):
     with open('Data.json', 'r', encoding='utf-8') as f:
             file_content = f.read().strip()
@@ -54,17 +56,4 @@ async def get_all_names(data):
             for anime_id, aliases in anime_data.items():
                 empty_array.extend(aliases)
     return empty_array
-
-def unused_itens(archives):
-    for i in archives:
-        print(i)
-        try:
-            os.remove(i)
-            print(f"File {i} has been deleted successfully.")
-        except FileNotFoundError:
-            print(f"The file {i} was not found.")
-        except PermissionError:
-            print(f"Permission denied to delete the file {i}.")
-        except Exception as e:
-            print(f"Error: {e}")
 

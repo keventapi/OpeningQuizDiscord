@@ -4,10 +4,6 @@ from discord import app_commands
 import GetAnimeList
 import Game
 import asyncio
-import yt_dlp
-import PlayYoutubeMusic
-import os
-import aiofiles
 import time
 
 class Game_configs:
@@ -66,38 +62,20 @@ async def autocomplete(interaction: discord.Interaction, current: str):
 @app_commands.autocomplete(opcao=autocomplete)
 async def guess(interaction: discord.Interaction, opcao: str):
     global configs
-    configs.user_id = str(interaction.user.id)
-    configs = pontuation_system(opcao)
-    print(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points')
-    await interaction.response.send_message(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points', ephemeral=True)
+    voice_clients = interaction.client.voice_clients
+    if any(vc.guild.id == interaction.guild.id for vc in voice_clients):
+        configs.user_id = str(interaction.user.id)
+        configs = pontuation_system(opcao)
+        print(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points')
+        await interaction.response.send_message(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points', ephemeral=True)
+    else:
+        await interaction.response.send_message(f'<@{str(interaction.user.id)}> im not in game', ephemeral=True)
 
 def check_player_in_match(user_id):
     global configs
     if user_id not in configs.match:
         configs.match[user_id] = {'points': 0, 'guessed': False}
     return configs
-
-async def download():
-    global configs
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [],
-        'outtmpl': 'downloads/%(id)s.%(ext)s',
-        'quiet': True,
-        'nocheckcertificate': True
-    }
-    attempts = 2
-    for i in range(attempts):
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(configs.url, download=True)
-            configs.file = f'downloads/{info["id"]}.{info["ext"]}'
-            return configs
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-            await asyncio.sleep(3)
-    return await search_opening()
-    
 
 def pontuation_system(answer):
     global configs
@@ -108,7 +86,6 @@ def pontuation_system(answer):
     elif answer not in configs.alternative_names and configs.match[configs.user_id]['guessed'] is not True:
         configs.match[configs.user_id]['guessed'] = True
     return configs
-
 
 def make_it_guesseble():
     global configs
@@ -128,11 +105,11 @@ def create_end_message(match):
 async def reset_game(ctx, counter):
     global configs
     if counter == 20:
+        message = create_end_message(configs.match)    
         for i in configs.match.keys():
             configs.match[i]['points'] = 0
             configs.match[i]['guessed'] = False
         await ctx.voice_client.disconnect()
-        message = create_end_message(configs.match)        
         print(configs.played)
         configs.played = []
         await ctx.send(message)
@@ -149,11 +126,10 @@ async def show_round_answer(ctx):
 
 async def check_on_call(ctx, voice_channel):
     global configs
-    return ctx.voice_client.is_playing()
-    
-async def delete_unused_itens(archives):
-    return Game.unused_itens(archives)
-
+    playing = ctx.voice_client.is_playing()
+    if playing is None:
+        return False
+    return playing
 
 async def search_opening():
     global configs
@@ -162,15 +138,13 @@ async def search_opening():
         search = await Game.start(configs.host)
     configs.played.append(search[0])
     configs.alternative_names = search[1]
-    configs.url = await PlayYoutubeMusic.search_opening(search[0])
-    configs = await download()
+    configs.url = search[0]
     return configs
 
 async def round_end(ctx, counter):
     global configs
     configs = make_it_guesseble()
     await show_round_answer(ctx)
-    await delete_unused_itens([configs.file])
     configs = await reset_game(ctx, counter)
     return configs
 
@@ -180,18 +154,19 @@ async def play_audio(ctx):
     while counter < 20:
         try:
             configs = await search_opening()
-            ffmpeg_audio = discord.FFmpegPCMAudio(configs.file, executable="ffmpeg", before_options="-ss 00:00:00 -t 00:00:30")
-            ctx.voice_client.play(ffmpeg_audio, after=lambda e: print(''))
+
+            if ctx.voice_client:
+                ffmpeg_audio = discord.FFmpegPCMAudio(configs.url, executable="ffmpeg", before_options="-ss 00:00:00 -t 00:00:30")
+                ctx.voice_client.play(ffmpeg_audio, after=lambda e: print(''))
+            else:
+                break
+
             while await check_on_call(ctx, configs.voice_channel):
                 await asyncio.sleep(1)   
             counter += 1
             configs = await round_end(ctx, counter)
         except Exception as e:
             print(f"An error occurred: {e}")
-            configs = await ctx.send(f"An error occurred: {e}")
-            if ctx.voice_client.is_connected():
-                await ctx.voice_client.disconnect()
-            break
 
 @bot.event
 async def on_ready():
@@ -232,7 +207,7 @@ async def play(ctx):
 
 @bot.command(name='stop')
 async def stop(ctx):
-    if ctx.voice_client is not None:
+    if ctx.voice_client:
         await ctx.voice_client.disconnect()
     else:
         await ctx.send('não to jogando otario')
