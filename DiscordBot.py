@@ -97,9 +97,10 @@ def make_it_guesseble():
 def create_end_message(match):
     global configs
     message = ""
-    for i in match.keys():
-        message += f'<@{i}> has {match[i]["points"]} points\n'
-    return message
+    if match is not {}:
+        for i in match.keys():
+            message += f'<@{i}> has {match[i]["points"]} points\n'
+    return 'nobody guessed anything yet'
 
 
 async def reset_game(ctx, counter):
@@ -123,6 +124,8 @@ async def show_round_answer(ctx):
     names = ", ".join(str(i) for i in configs.alternative_names)
     await ctx.send(f'anime name: {configs.alternative_names[-1]}')
     await ctx.send(f'alternative names: {names}')
+    message = create_end_message(configs.match)
+    await ctx.send(message)
 
 async def check_on_call(ctx, voice_channel):
     global configs
@@ -179,20 +182,20 @@ async def mylist(ctx, arg):
     user_id = ctx.author.id 
     user = GetAnimeList.REQUEST(arg, user_id)
     user.print_user_info()
-    await ctx.send(f'Lista atualizada')
+    await ctx.send(f'MAL list updated')
 
 @bot.command(name='play')
 async def play(ctx):
     global configs
 
     if not ctx.author.voice:
-        await ctx.send('Você não está em um canal de voz.')
+        await ctx.send('you are not in a voice channel.')
         return
 
     channel = ctx.author.voice.channel
     
     if ctx.voice_client is not None:
-        await ctx.send('To no meio de um jogo panaca')
+        await ctx.send('already in a match')
         return
 
     voice_channel = await channel.connect()
@@ -203,14 +206,14 @@ async def play(ctx):
         configs = Game_configs(ctx, user_id, ctx.voice_client.channel, host, match={}, alternative_names=[], played=[])
         await play_audio(ctx)
     else:
-        await ctx.send('Você não está em um canal de voz.')
+        await ctx.send('you are not in a voice channel.')
 
 @bot.command(name='stop')
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
     else:
-        await ctx.send('não to jogando otario')
+        await ctx.send('nobody is playing at the moment')
 
 
 bot.run(secret)
