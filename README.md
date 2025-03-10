@@ -1,31 +1,103 @@
-files:
-  Data.Json
-    it will store the MAL user list information such as id, anime name and alias
-  Discord.py
-    it is where the functions that works with the discord api will work
-  Game.py
-    the game logic that dont need to be requested will work here 
-  GetAnimeList.py  
-    the animes info will be requested here, such as opening link, name, id and alias
+OpeningQuizDiscord
 
-commands:
-  !mylist
-    get or update the MyAnimeList completed anime
-  !play
-    start a match ~user needs to be in a voice-channel to make the bot start a match~
-  !stop
-    stop the match ~bot nees to be in a call to use this commands~
-  /guess
-    slash command to use the feature autocomplete and it will get all te Data.json animes and alias to help the players guess the anime ~you need to be in a match to make the command work, otherwise it will just say that its not playing at the moment~
+OpeningQuizDiscord is a Discord bot designed for anime fans to test their knowledge by guessing anime openings. The bot plays a random anime opening, and users have one chance to guess the anime. Points are awarded for correct guesses, and a leaderboard is displayed at the end of the match.
 
-APIS:
-discord.py
-  to do the interactions in the server and make it playable
-MyAnimeList
-  to get the user list and save it in the Data.json
-AnimeThemes.moe
-  it will get the openings
+Features
 
-what is it for:
-its just a for fun bot, it will create a match in the call and play openings, you will guess once per opening, if you guess it right you will score a point, at the end of the match the bot will show the leaderboard
+Fetches anime lists from MyAnimeList and stores them.
 
+Retrieves anime openings from AnimeThemes.moe.
+
+Interactive Discord bot using discord.py.
+
+Slash command /guess with autocomplete support.
+
+Score tracking and leaderboard display.
+
+Installation
+
+Requirements
+
+Python 3.8+
+
+discord.py library
+
+requests library
+
+asyncio library
+
+Setup
+
+Clone the repository:
+
+git clone https://github.com/keventapi/OpeningQuizDiscord.git
+cd OpeningQuizDiscord
+
+Install dependencies:
+
+pip install -r requirements.txt
+
+Create a .env file and add your bot token:
+
+DISCORD_BOT_TOKEN=your_token_here
+
+Run the bot:
+
+python Discord.py
+
+File Structure
+
+OpeningQuizDiscord/
+├── Data.json          # Stores user anime list (ID, name, alias)
+├── Discord.py         # Handles Discord bot interactions
+├── Game.py            # Core game logic
+├── GetAnimeList.py    # Fetches anime info (openings, names, IDs, aliases)
+├── requirements.txt   # Required dependencies
+└── README.md          # Documentation
+
+Commands
+
+!mylist
+
+Fetch or update the user's completed anime list from MyAnimeList.
+
+!play
+
+Start a match. (User must be in a voice channel)
+
+!stop
+
+Stop the match. (Bot must be in a voice channel)
+
+/guess
+
+Slash command with autocomplete support, fetching anime names from Data.json.
+(Must be in a match for this command to work)
+
+APIs Used
+
+discord.py: Handles interactions within the Discord server.
+
+MyAnimeList API: Retrieves user anime lists.
+
+AnimeThemes.moe API: Fetches anime openings.
+
+How It Works
+
+The bot retrieves and stores a user's completed anime list from MyAnimeList.
+
+During a match, the bot selects a random anime and plays its opening.
+
+Users have one guess per opening.
+
+If guessed correctly, the player earns a point.
+
+At the end of the match, the bot displays the leaderboard.
+
+License
+
+This project is for fun and is open-source. Feel free to contribute!
+
+Contact
+
+For issues or suggestions, open an issue on GitHub.
