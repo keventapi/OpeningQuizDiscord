@@ -17,6 +17,7 @@ class Game_configs:
         self.played = played
         self.url = url
         self.file = file
+        self.block_guess = False
 
 global configs
 
@@ -31,14 +32,13 @@ cooldown = 1/30
 
 async def autocomplete(interaction: discord.Interaction, current: str):
     global last_autocomplete_time
-    
     current_time = time.time()
 
     if current_time - last_autocomplete_time < cooldown:
         return []
-    
+
     last_autocomplete_time = current_time
-    
+
     try:
         options_list = await Game.get_name_list()
         if not options_list:
@@ -47,30 +47,38 @@ async def autocomplete(interaction: discord.Interaction, current: str):
     except Exception as e:
         print(f"Error in get_name_list: {e}")
         return []
-    
-    filtered_options = []
+
     seen = set()
-    for option in options_list:
-        if current.lower() in option.lower() and option not in seen and option != '' and 1 <= len(option) <= 100:
-            filtered_options.append(app_commands.Choice(name=option, value=option))
-            seen.add(option)
-    
-    return filtered_options[:20]
+    filtered_options = [
+        app_commands.Choice(name=option, value=option)
+        for option in options_list
+        if current.lower() in option.lower() and option not in seen and option != '' and 1 <= len(option) <= 100
+        and not seen.add(option)
+    ][:20]
+    return filtered_options
+
 
 @bot.tree.command(name='guess', description="it's your openning guess")
 @app_commands.describe(opcao='guess the anime')
 @app_commands.autocomplete(opcao=autocomplete)
 async def guess(interaction: discord.Interaction, opcao: str):
     global configs
-    voice_clients = interaction.client.voice_clients
-    if any(vc.guild.id == interaction.guild.id for vc in voice_clients):
-        configs.user_id = str(interaction.user.id)
-        configs = pontuation_system(opcao)
-        print(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points')
-        await interaction.response.send_message(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points', ephemeral=True)
+    if configs.block_guess != True:
+        voice_clients = interaction.client.voice_clients
+        try:
+            if any(vc.guild.id == interaction.guild.id for vc in voice_clients):
+                configs.user_id = str(interaction.user.id)
+                configs = pontuation_system(opcao)
+                print(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points')
+                await interaction.response.send_message(f'<@{str(interaction.user.id)}> has {configs.match[str(interaction.user.id)]["points"]} points', ephemeral=True)
+            else:
+                await interaction.response.send_message(f'<@{str(interaction.user.id)}> im not in game', ephemeral=True)
+        except Exception as e:
+            asyncio.sleep(0.5)
+            print(f'error: {e}')
     else:
-        await interaction.response.send_message(f'<@{str(interaction.user.id)}> im not in game', ephemeral=True)
-
+        await interaction.response.send_message(f'<@{str(interaction.user.id)}> you cant guess while it\'s not playing any music', ephemeral=True)
+        
 def check_player_in_match(user_id):
     global configs
     if user_id not in configs.match:
@@ -97,19 +105,24 @@ def make_it_guesseble():
 def create_end_message(match):
     global configs
     message = ""
-    if match is not {}:
+    if match != {}:
         for i in match.keys():
             message += f'<@{i}> has {match[i]["points"]} points\n'
+        return message
     return 'nobody guessed anything yet'
 
 
 async def reset_game(ctx, counter):
     global configs
     if counter == 20:
-        message = create_end_message(configs.match)    
-        for i in configs.match.keys():
-            configs.match[i]['points'] = 0
-            configs.match[i]['guessed'] = False
+        if configs.match is not {}:
+            message = create_end_message(configs.match)    
+            for i in configs.match.keys():
+                configs.match[i]['points'] = 0
+                configs.match[i]['guessed'] = False
+        else:
+            message = 'nobody guessed anything'
+            
         await ctx.voice_client.disconnect()
         print(configs.played)
         configs.played = []
@@ -146,6 +159,11 @@ async def search_opening():
 
 async def round_end(ctx, counter):
     global configs
+    configs.block_guess = True
+    await ctx.send('round end await 5 seconds to make another guess')
+    await asyncio.sleep(5)
+    configs.block_guess = False
+    await ctx.send('you can guess again')
     configs = make_it_guesseble()
     await show_round_answer(ctx)
     configs = await reset_game(ctx, counter)
@@ -159,7 +177,7 @@ async def play_audio(ctx):
             configs = await search_opening()
 
             if ctx.voice_client:
-                ffmpeg_audio = discord.FFmpegPCMAudio(configs.url, executable="ffmpeg", before_options="-ss 00:00:00 -t 00:00:30")
+                ffmpeg_audio = discord.FFmpegPCMAudio(configs.url, executable="ffmpeg", before_options="-ss 00:00:00 -t 00:00:30 -re -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options="-vn")
                 ctx.voice_client.play(ffmpeg_audio, after=lambda e: print(''))
             else:
                 break
@@ -168,6 +186,7 @@ async def play_audio(ctx):
                 await asyncio.sleep(1)   
             counter += 1
             configs = await round_end(ctx, counter)
+
         except Exception as e:
             print(f"An error occurred: {e}")
 
@@ -212,8 +231,8 @@ async def play(ctx):
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
+        await reset_game(ctx, 20)
     else:
         await ctx.send('nobody is playing at the moment')
-
 
 bot.run(secret)

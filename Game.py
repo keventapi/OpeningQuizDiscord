@@ -1,9 +1,7 @@
 import json
 import random
 import GetAnimeList
-import os
 import aiofiles
-import asyncio
 
 async def open_json():
     file = 'Data.json'
@@ -21,6 +19,7 @@ async def start(discord_id):
     anime_info = await dados.get_anime_info_with_MAL()
     update_anime_alias(discord_id, anime_info['anime_id'], anime_info['anime_alias'])
     search = get_opening(anime_info['openings'])
+    print(anime_info['anime_alias'])
     return [search, anime_info['anime_alias']]
     
 def get_opening(openings):
